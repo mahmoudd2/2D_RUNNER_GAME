@@ -1,0 +1,862 @@
+// Includes
+#include <stdio.h>
+#include <math.h>
+#include <random>
+#include <glut.h>
+#include <windows.h>
+
+// ANY CONSTANTS AND VARIABLES
+
+#define M_PI 3.14159265358979323846
+
+// Window size
+const int windowWidth = 800;
+const int windowHeight = 600;
+
+// Player position and dimensions
+float playerX = 100.0f;
+float playerY = 100.0f;
+float playerWidth = 50.0f;
+float playerHeight = 50.0f;
+float eyeRadius = 2.0f;
+float eyeOffsetX = 4.0f;
+float eyeOffsetY = 3.0f;
+
+// Checks
+bool isJumping = false;
+bool isDucking = false;
+bool gameStarted = false;
+bool isClockActive = true;
+bool isGameOver = false;
+bool isHit = true;
+
+
+// Player Variables
+float jumpVelocity = 5.0f;
+float gravity = 0.2f;
+float runAnimationPhase = 0.0f; // Track the animation phase for running
+const float legSwing = 10.0f; // Amount to swing legs for running effect
+int playerHealth = 5;  // Player's health 
+int playerScore = 0;    // Player's score
+
+//groundLevel
+float groundLevel = 100.0f;  // The Y coordinate for the ground
+
+
+// Global variables for tree animation
+const int numTrees = 6;       // Number of trees
+
+float treePositions[numTrees]; // Array to store X positions of trees
+float treeSpeed = 2.0f;        // Speed at which the trees move
+
+// Timer VARIABLES
+float timerDuration = 13.0f; //in seconds
+float timerRemaining = timerDuration;
+
+
+// Frame counter for score incrementing
+int frameCounter = 0; // Counter for frames to control score increase
+const int scoreIncrementInterval = 5; // Increment score every 5 frames
+
+
+//Clock Variables
+const int CLOCK_RADIUS = 30;
+const float CLOCK_WIDTH = CLOCK_RADIUS * 2;
+const float CLOCK_HEIGHT = CLOCK_RADIUS;
+
+float clockXPosition = windowWidth;
+
+const float clockSpeed = 5.0f;
+float clockRenderTimer = 0.0f;
+const float clockRenderInterval = 6.0f;
+
+const int fixedHour = 10;
+const int fixedMinute = 10;
+const int fixedSecond = 30;
+
+//OBSTACLES VARIABLES
+float wallXPosition = windowWidth;
+
+const float wallSpeed = 5.0f;
+float wallRenderTimer = 0.0f;
+const float WallRenderInterval = 3.0f;
+
+const float WALL_WIDTH = 100.0f;
+const float WALL_Height = 55.0f;
+
+//Arrow VARS
+float arrowXPosition = windowWidth + 600.0f; // Starting position of the arrow (off-screen)
+float arrowSpeed = 5.0f;       // Speed of the arrow
+float arrowRenderTimer = 0.0f;
+const float arrowRenderInterval = 5.0f;
+
+bool isArrowActive = true;     // Whether the arrow is active
+
+
+const float ARROW_WIDTH = 30.0f;
+const float ARROW_HEIGHT = 20.0f;
+const float ARROW_STEM_WIDTH = 10.0f;
+const float ARROW_STEM_LENGTH = 40.0f;
+
+//game vars
+float gameSpeed = 1.0f;           // Initial game speed
+float gameSpeedIncrement = 0.005f; // How much the speed increases over time
+
+
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+//FUNCTIONS
+
+//Controls Functions
+
+void handleKeyPress(unsigned char key, int x, int y) {
+    switch (key) {
+    case 'w': // Jump
+        if (!isJumping) {
+            isJumping = true;
+        }
+        break;
+    case 's': // Duck
+        isDucking = true;
+        break;
+    }
+}
+
+void handleKeyRelease(unsigned char key, int x, int y) {
+    if (key == 's') {
+        isDucking = false;
+    }
+}
+
+void handleSpecialKeyPress(int key, int x, int y) {
+    switch (key) {
+    case GLUT_KEY_UP:
+        if (!isJumping) {
+            isJumping = true;
+        }
+        break;
+    case GLUT_KEY_DOWN:
+        isDucking = true;
+        break;
+    }
+}
+
+void handleSpecialKeyRelease(int key, int x, int y) {
+    if (key == GLUT_KEY_DOWN) {
+        isDucking = false;
+    }
+}
+
+void handleMouseClick(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        // Check if the click is within the button area
+        if (x > (windowWidth / 2 - 100) && x < (windowWidth / 2 + 100) &&
+            y >(windowHeight / 2 - 25) && y < (windowHeight / 2 + 25)) {
+            gameStarted = true;
+        }
+    }
+}
+
+void Controls_init() {
+
+    glutKeyboardFunc(handleKeyPress);
+    glutKeyboardUpFunc(handleKeyRelease);
+    glutSpecialFunc(handleSpecialKeyPress);
+    glutSpecialUpFunc(handleSpecialKeyRelease);
+    glutMouseFunc(handleMouseClick);
+
+}
+
+//-------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+//DRAWING FUNCTIONS
+
+void renderPlayer() {
+    // Set color and draw torso (Rectangle)
+    glColor3f(0.0f, 0.0f, 1.0f);  // Body color
+    glBegin(GL_QUADS);
+    glVertex2f(playerX + 15, playerY);                    // Bottom-left
+    glVertex2f(playerX + 35, playerY);                    // Bottom-right
+    glVertex2f(playerX + 35, playerY + playerHeight);     // Top-right (adjust height when ducking)
+    glVertex2f(playerX + 15, playerY + playerHeight);     // Top-left (adjust height when ducking)
+    glEnd();
+
+    // Draw head (Circle)
+    glColor3f(1.0f, 0.8f, 0.6f);  // Skin tone for the head
+    float radius = 12.0f;
+    float centerX = playerX + playerWidth / 2.0f;  // Center the head on top of the body
+    float centerY = playerY + playerHeight + 10.0f; // Position head slightly above the body
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(centerX, centerY);  // Center of the circle
+    for (int i = 0; i <= 20; i++) {  // Draw the circle with triangles
+        float theta = 2.0f * M_PI * float(i) / 20.0f;  // Get angle for the vertex
+        float dx = radius * cosf(theta);  // X component
+        float dy = radius * sinf(theta);  // Y component
+        glVertex2f(centerX + dx, centerY + dy);
+    }
+    glEnd();
+
+    // Draw eyes and mouth (same as before)
+    glColor3f(0.0f, 0.0f, 0.0f);  // Black for eyes
+
+
+    // Left eye
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(centerX - eyeOffsetX, centerY + eyeOffsetY);
+    for (int i = 0; i <= 20; i++) {
+        float theta = 2.0f * M_PI * float(i) / 20.0f;
+        float dx = eyeRadius * cosf(theta);
+        float dy = eyeRadius * sinf(theta);
+        glVertex2f(centerX - eyeOffsetX + dx, centerY + eyeOffsetY + dy);
+    }
+    glEnd();
+
+    // Right eye
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(centerX + eyeOffsetX, centerY + eyeOffsetY);
+    for (int i = 0; i <= 20; i++) {
+        float theta = 2.0f * M_PI * float(i) / 20.0f;
+        float dx = eyeRadius * cosf(theta);
+        float dy = eyeRadius * sinf(theta);
+        glVertex2f(centerX + eyeOffsetX + dx, centerY + eyeOffsetY + dy);
+    }
+    glEnd();
+
+    // Draw mouth
+    glColor3f(1.0f, 0.0f, 0.0f);  // Red for mouth
+    float mouthWidth = 6.0f;
+    float mouthHeight = -2.0f;
+    glBegin(GL_LINES);
+    glVertex2f(centerX - mouthWidth / 2.0f, centerY - eyeOffsetY);  // Left side of the mouth
+    glVertex2f(centerX + mouthWidth / 2.0f, centerY - eyeOffsetY);  // Right side of the mouth
+    glEnd();
+
+    // Draw shoulders and arms
+    glColor3f(0.0f, 0.0f, 1.0f);  // Skin tone for arms and shoulders
+
+    // Left shoulder (small rectangle near the torso)
+    glBegin(GL_QUADS);
+    glVertex2f(playerX + 5, playerY + playerHeight); // Top-left of shoulder
+    glVertex2f(playerX + 15, playerY + playerHeight); // Top-right of shoulder
+    glVertex2f(playerX + 15, playerY + playerHeight - 10); // Bottom-right of shoulder
+    glVertex2f(playerX + 5, playerY + playerHeight - 10); // Bottom-left of shoulder
+    glEnd();
+
+    //glVertex2f(playerX + 15, playerY + playerHeight);     // Top-left (adjust height when ducking)
+
+
+    // Right shoulder (small rectangle near the torso)
+    glBegin(GL_QUADS);
+    glVertex2f(playerX + 35, playerY + playerHeight); // Top-left of shoulder
+    glVertex2f(playerX + 45, playerY + playerHeight); // Top-right of shoulder
+    glVertex2f(playerX + 45, playerY + playerHeight - 10); // Bottom-right of shoulder
+    glVertex2f(playerX + 35, playerY + playerHeight - 10); // Bottom-left of shoulder
+    glEnd();
+
+    glColor3f(1.0f, 0.8f, 0.6f);  // Skin tone for arms and shoulders
+
+    // Left arm (rectangle extending from shoulder)
+    glBegin(GL_QUADS);
+    glVertex2f(playerX + 5, playerY + playerHeight - 10); // top left 
+    glVertex2f(playerX + 15, playerY + playerHeight - 10); // top right
+    glVertex2f(playerX + 15, playerY + playerHeight * 0.60f - 10); // bottom right
+    glVertex2f(playerX + 5, playerY + playerHeight * 0.60f - 10); // bottom left
+    glEnd();
+
+    // Right arm (rectangle extending from shoulder)
+    glBegin(GL_QUADS);
+    glVertex2f(playerX + 35, playerY + playerHeight - 10); // Shoulder point
+    glVertex2f(playerX + 45, playerY + playerHeight - 10); // Elbow
+    glVertex2f(playerX + 45, playerY + playerHeight * 0.60f - 10); // Elbow extension
+    glVertex2f(playerX + 35, playerY + playerHeight * 0.60f - 10); // Hand
+    glEnd();
+
+    // Leg animation and drawing (using polygons)
+    float legAdjustment = legSwing * sin(runAnimationPhase);
+
+    // Left leg
+    glBegin(GL_POLYGON);
+    glVertex2f(playerX + 15, playerY);                            // Bottom-left of the leg
+    glVertex2f(playerX + 15 + legAdjustment, playerY - 30);      // Top-left of the leg
+    glVertex2f(playerX + 22.5 + legAdjustment, playerY - 30); // Top-right of the leg
+    glVertex2f(playerX + 22.5, playerY);                       // Bottom-right of the leg
+    glEnd();
+
+    // Right leg
+    glBegin(GL_POLYGON);
+    glVertex2f(playerX + 27.5, playerY);                            // Bottom-left of the leg
+    glVertex2f(playerX + 27.5 + legAdjustment, playerY - 30);      // Top-left of the leg
+    glVertex2f(playerX + 35 + legAdjustment, playerY - 30); // Top-right of the leg
+    glVertex2f(playerX + 35, playerY);                       // Bottom-right of the leg
+    glEnd();
+}
+
+// Function to initialize tree positions
+void initTrees() {
+    for (int i = 0; i < numTrees; i++) {
+        treePositions[i] = i * 150.0f + 50; // Initial spacing of trees
+    }
+}
+void renderTrees() {
+    // Green color for the leaves
+    glColor3f(0.2f, 0.8f, 0.2f);
+
+    for (int i = 0; i < numTrees; i++) {
+        float treeX = treePositions[i];
+        float treeY = groundLevel + 150;  // Base of the tree
+        float treeWidth = 10.0f;
+        float treeHeight = 80.0f;
+
+        // Draw tree trunk (brown rectangle)
+        glColor3f(0.55f, 0.27f, 0.07f);  // Brown color for the trunk
+        glBegin(GL_QUADS);
+        glVertex2f(treeX - (treeWidth / 2), treeY);                    // Bottom-left corner of the trunk
+        glVertex2f(treeX + (treeWidth / 2), treeY);                    // Bottom-right corner of the trunk
+        glVertex2f(treeX + (treeWidth / 2), treeY + treeHeight / 2);   // Top-right corner of the trunk
+        glVertex2f(treeX - (treeWidth / 2), treeY + treeHeight / 2);   // Top-left corner of the trunk
+        glEnd();
+
+        // Draw tree leaves (green triangle)
+        glColor3f(0.0f, 0.5f, 0.0f);  // Green color for the leaves
+        glBegin(GL_TRIANGLES);
+        glVertex2f(treeX - (treeWidth + 5), treeY + treeHeight / 2);         // Bottom-left corner of the leaves
+        glVertex2f(treeX + (treeWidth + 5), treeY + treeHeight / 2);         // Bottom-right corner of the leaves
+        glVertex2f(treeX, treeY + treeHeight);                          // Top corner of the leaves (adjusted for height)
+        glEnd();
+
+    }
+}
+
+void renderBackground() {
+    // Render the road (the first road)
+    glColor3f(0.4f, 0.4f, 0.4f);  // Dark gray color for the road
+    glBegin(GL_QUADS);
+    glVertex2f(0, 0);               // Bottom-left corner
+    glVertex2f(windowWidth, 0);     // Bottom-right corner
+    glVertex2f(windowWidth, groundLevel + 150); // Top-right corner
+    glVertex2f(0, groundLevel + 150);          // Top-left corner
+    glEnd();
+
+    renderTrees();
+
+
+}
+
+void renderObstacles() {
+    //float obstacleHeight = WallHeight; // Wall height is 75% of player's height
+    wallXPosition -= wallSpeed * gameSpeed;
+
+    if (wallXPosition > -WALL_WIDTH) {
+        // Set the color for the wall obstacle
+        glColor3f(0.7f, 0.7f, 0.7f); // Light gray color for the wall
+
+        // Draw the rectangular wall using GL_QUADS
+        glBegin(GL_QUADS);
+        glVertex2f(wallXPosition, groundLevel + WALL_Height);                          // Bottom-left
+        glVertex2f(wallXPosition + WALL_WIDTH, groundLevel + WALL_Height);           // Bottom-right
+        glVertex2f(wallXPosition + WALL_WIDTH, groundLevel + WALL_Height + 40); // Top-right
+        glVertex2f(wallXPosition, groundLevel + WALL_Height + 40);          // Top-left
+        glEnd();
+
+        // Set the color for the "X" on the wall
+        glColor3f(1.0f, 0.0f, 0.0f); // Red color for the "X"
+
+        // Draw the "X" using GL_LINES
+        glBegin(GL_LINES);
+        // Diagonal from top-left to bottom-right
+        glVertex2f(wallXPosition, groundLevel + WALL_Height + 40);          // Top-left
+        glVertex2f(wallXPosition + WALL_WIDTH, groundLevel + WALL_Height);           // Bottom-right
+
+        // Diagonal from bottom-left to top-right
+        glVertex2f(wallXPosition, groundLevel + WALL_Height);                          // Bottom-left
+        glVertex2f(wallXPosition + WALL_WIDTH, groundLevel + WALL_Height + 40); // Top-right
+        glEnd();
+    }
+
+}
+
+
+void renderClock() {
+    // Move the clock to the left over time
+    clockXPosition -= clockSpeed * gameSpeed; // Move speed; adjust as needed
+
+    // Only render the clock if it's within the visible screen
+    if (clockXPosition > -CLOCK_RADIUS && isClockActive) {
+        // Draw the clock face with a black border
+        glColor3f(1.0f, 1.0f, 0.7f); // Light yellow color for the clock face
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(clockXPosition, groundLevel); // Center of the clock
+        for (int angle = 0; angle <= 360; angle += 6) { // 60 points for the clock face
+            float radians = angle * M_PI / 180.0f; // Convert angle to radians
+            float x = clockXPosition + CLOCK_RADIUS * cos(radians);
+            float y = groundLevel + CLOCK_RADIUS * sin(radians);
+            glVertex2f(x, y);
+        }
+        glEnd();
+
+        // Draw the clock border
+        glColor3f(0.0f, 0.0f, 0.0f); // Black color for the border
+        glBegin(GL_LINE_LOOP);
+        for (int angle = 0; angle < 360; angle += 6) { // 60 points for the border
+            float radians = angle * M_PI / 180.0f; // Convert angle to radians
+            float x = clockXPosition + CLOCK_RADIUS * cos(radians);
+            float y = groundLevel + CLOCK_RADIUS * sin(radians);
+            glVertex2f(x, y);
+        }
+        glEnd();
+
+        // Calculate angles for hands
+        float hourAngle = (fixedHour % 12 + fixedMinute / 60.0f) * 30; // 30 degrees per hour
+        float minuteAngle = (fixedMinute + fixedSecond / 60.0f) * 6; // 6 degrees per minute
+        float secondAngle = fixedSecond * 6; // 6 degrees per second
+
+        // Draw the hour hand
+        glColor3f(0.0f, 0.0f, 0.0f); // Black color for the hour hand
+        glBegin(GL_LINES);
+        glVertex2f(clockXPosition, groundLevel); // Center of the clock
+        glVertex2f(clockXPosition + (CLOCK_RADIUS - 10) * cos(hourAngle * M_PI / 180.0f),
+            groundLevel + (CLOCK_RADIUS - 10) * sin(hourAngle * M_PI / 180.0f));
+        glEnd();
+
+        // Draw the minute hand
+        glColor3f(0.0f, 1.0f, 0.0f); // Black color for the minute hand
+        glBegin(GL_LINES);
+        glVertex2f(clockXPosition, groundLevel); // Center of the clock
+        glVertex2f(clockXPosition + (CLOCK_RADIUS - 15) * cos(minuteAngle * M_PI / 180.0f),
+            groundLevel + (CLOCK_RADIUS - 15) * sin(minuteAngle * M_PI / 180.0f));
+        glEnd();
+
+        // Draw the second hand
+        glColor3f(1.0f, 0.0f, 0.0f); // Red color for the second hand
+        glBegin(GL_LINES);
+        glVertex2f(clockXPosition, groundLevel); // Center of the clock
+        glVertex2f(clockXPosition + (CLOCK_RADIUS - 20) * cos(secondAngle * M_PI / 180.0f),
+            groundLevel + (CLOCK_RADIUS - 20) * sin(secondAngle * M_PI / 180.0f));
+        glEnd();
+    }
+}
+
+// Function to render bitmap string at given coordinates
+void renderBitmapString(float x, float y, void* font, const char* string) {
+    glRasterPos2f(x, y); // Set the position for the text
+    while (*string) {
+        glutBitmapCharacter(font, *string); // Render each character
+        string++;
+    }
+}
+
+void renderHealthBar(float barX, float barY) {
+    // Size and gap for the health bar
+    float barWidth = 100.0f; // Width of the outer rectangle
+    float barHeight = 15.0f; // Height of the outer rectangle
+    float gap = 2.0f;        // Gap between inner rectangles
+    float quadWidth = (barWidth - 4 * gap) / 5; // Width of each life rectangle
+
+    // Draw the outer rectangle using GL_LINES
+    glColor3f(0.0f, 0.0f, 0.0f); // White color for the outer rectangle
+    glBegin(GL_LINES);
+    // Top line
+    glVertex2f(barX - 1, barY);
+    glVertex2f(barX + barWidth, barY);
+
+    // Bottom line
+    glVertex2f(barX - 1, barY - barHeight);
+    glVertex2f(barX + barWidth, barY - barHeight);
+
+    // Left line
+    glVertex2f(barX - 1, barY);
+    glVertex2f(barX - 1, barY - barHeight);
+
+    // Right line
+    glVertex2f(barX + barWidth, barY);
+    glVertex2f(barX + barWidth, barY - barHeight);
+    glEnd();
+
+    // Draw the filled life rectangles inside the outer rectangle using GL_QUADS
+    glColor3f(0.0f, 1.0f, 0.0f); // Green color for filled lives
+    for (int i = 0; i < playerHealth; i++) {
+        glBegin(GL_QUADS);
+        glVertex2f(barX - 0.5 + i * (quadWidth + gap), barY);                  // Top-left
+        glVertex2f(barX - 0.5 + i * (quadWidth + gap) + quadWidth, barY);      // Top-right
+        glVertex2f(barX - 0.5 + i * (quadWidth + gap) + quadWidth, barY - barHeight + 1); // Bottom-right
+        glVertex2f(barX - 0.5 + i * (quadWidth + gap), barY - barHeight + 1);      // Bottom-left
+        glEnd();
+    }
+}
+
+
+
+void renderTimer() {
+    // Set the color and position for the timer text
+    glColor3f(1.0f, 1.0f, 1.0f); // White color for the timer
+    float timerX = 10.0f; // X position
+    float timerY = windowHeight - 30.0f; // Y position (close to top)
+
+    // Create a string buffer to format the timer display
+    char timerString[50];
+    sprintf(timerString, "Timer: %.1f", timerRemaining); // Format remaining time
+
+    // Render the timer text
+    renderBitmapString(timerX, timerY, GLUT_BITMAP_HELVETICA_18, timerString); // Render the timer text
+
+    // Render health text
+    float healthTextX = windowWidth - 300; // X position for "Health:" text
+    float healthTextY = timerY;            // Y position stays the same
+
+    char healthString[50];
+    sprintf(healthString, "Health:"); // Format health display
+    renderBitmapString(healthTextX, healthTextY, GLUT_BITMAP_HELVETICA_18, healthString); // Render health text
+
+    // Render the health bar beside the health text
+    float healthBarX = healthTextX + 65.0f; // Set X position for the health bar beside "Health:"
+    float healthBarY = healthTextY + 15.0f;  // Align the health bar with the health text (adjusted Y)
+    renderHealthBar(healthBarX, healthBarY); // Render the health bar at the specified position
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+    // Render score text
+    float scoreTextX = windowWidth - 125;  // X position for score text
+    float scoreTextY = timerY;             // Y position stays the same
+
+    char scoreString[50];
+    sprintf(scoreString, "Score: %d", playerScore); // Format score display
+    renderBitmapString(scoreTextX, scoreTextY, GLUT_BITMAP_HELVETICA_18, scoreString); // Render score text
+}
+
+
+// Function to render the start game button
+void renderStartButton() {
+    glColor3f(0.0f, 1.0f, 0.0f); // Green color for the button
+    glBegin(GL_QUADS);
+    glVertex2f(windowWidth / 2 - 100, windowHeight / 2 - 25); // Bottom-left
+    glVertex2f(windowWidth / 2 + 100, windowHeight / 2 - 25); // Bottom-right
+    glVertex2f(windowWidth / 2 + 100, windowHeight / 2 + 25); // Top-right
+    glVertex2f(windowWidth / 2 - 100, windowHeight / 2 + 25); // Top-left
+    glEnd();
+
+    // Render button text "START GAME"
+    glColor3f(1.0f, 1.0f, 1.0f); // White color for text
+    float textX = windowWidth / 2 - 70; // Adjust X position for centering
+    float textY = windowHeight / 2 - 10; // Adjust Y position for centering
+    renderBitmapString(textX, textY, GLUT_BITMAP_HELVETICA_18, "START GAME"); // Render the text
+}
+
+void renderArrow() {
+    // Move the arrow to the left over time, like the clock
+    arrowXPosition -= arrowSpeed * gameSpeed;
+
+    // Only render the arrow if it's within the visible screen and active
+    if (arrowXPosition > -ARROW_WIDTH && isArrowActive) {
+        // Draw the arrow body
+        glColor3f(0.0f, 0.0f, 1.0f); // Blue color for the arrow
+        glBegin(GL_TRIANGLES);
+        // Define vertices for the arrow shape (pointing upwards now)
+        glVertex2f(arrowXPosition, groundLevel + ARROW_HEIGHT);                   // Top point of the arrow
+        glVertex2f(arrowXPosition - ARROW_WIDTH / 2, groundLevel);                // Bottom-left of the arrow
+        glVertex2f(arrowXPosition + ARROW_WIDTH / 2, groundLevel);                // Bottom-right of the arrow
+        glEnd();
+
+        // Draw the arrow stem (optional, pointing upwards)
+        glColor3f(0.0f, 0.0f, 1.0f); // Blue color for the stem
+        glBegin(GL_QUADS);
+        glVertex2f(arrowXPosition - ARROW_STEM_WIDTH / 2, groundLevel);              // Bottom-left of the stem
+        glVertex2f(arrowXPosition + ARROW_STEM_WIDTH / 2, groundLevel);              // Bottom-right of the stem
+        glVertex2f(arrowXPosition + ARROW_STEM_WIDTH / 2, groundLevel - ARROW_STEM_LENGTH); // Top-right of the stem
+        glVertex2f(arrowXPosition - ARROW_STEM_WIDTH / 2, groundLevel - ARROW_STEM_LENGTH); // Top-left of the stem
+        glEnd();
+    }
+}
+
+
+
+//-----------------------------------------------------------------------------------------------------------------------------//
+
+//CHECK FUNCS
+
+bool checkCollisions(const std::string& objectType) {
+    if (objectType == "clock") {
+        if (!isClockActive) {
+            return false;
+        }
+
+        // Player bounding box
+        float playerLeft = playerX + 15;
+        float playerRight = playerX + 35;
+        float playerBottom = playerY;
+        float playerTop = playerY + playerHeight + 10;
+
+        // Clock bounding box
+        float clockLeft = clockXPosition - CLOCK_WIDTH / 2;
+        float clockRight = clockXPosition + CLOCK_WIDTH / 2;
+        float clockBottom = groundLevel;
+        float clockTop = groundLevel + CLOCK_HEIGHT;
+
+        // Check for collision with clock
+        return (playerRight > clockLeft && playerLeft < clockRight &&
+            playerTop > clockBottom && playerBottom < clockTop);
+    }
+    else if (objectType == "obstacle") {
+        if (!isHit) {
+            return false;
+        }
+        // Player bounding box
+        float playerLeft = playerX + 15;
+        float playerRight = playerX + 35;
+        float playerBottom = playerY;
+        float playerTop = playerY + playerHeight + 10;
+
+        float wallLeft = wallXPosition;
+        float wallRight = wallXPosition + WALL_WIDTH;
+        float wallBottom = groundLevel + WALL_Height;
+        float wallTop = groundLevel + WALL_Height + 40;
+
+        return (playerRight > wallLeft && playerLeft < wallRight &&
+            playerTop > wallBottom && playerBottom < wallTop);
+    }
+    else if (objectType == "arrow") {
+        if (!isArrowActive) {
+            return false;
+        }
+
+        // Player bounding box
+        float playerLeft = playerX + 15;
+        float playerRight = playerX + 35;
+        float playerBottom = playerY;
+        float playerTop = playerY + playerHeight + 10;
+
+        // Arrow bounding box
+        float arrowLeft = arrowXPosition - ARROW_WIDTH / 2;
+        float arrowRight = arrowXPosition + ARROW_WIDTH / 2;
+        float arrowBottom = groundLevel;
+        float arrowTop = groundLevel + ARROW_HEIGHT + ARROW_STEM_LENGTH;
+
+        // Check for collision with arrow
+        return (playerRight > arrowLeft && playerLeft < arrowRight &&
+            playerTop > arrowBottom && playerBottom < arrowTop);
+    }
+
+    return false; // Default to no collision if objectType doesn't match
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------//
+
+//UPDATES FUNCTIONS
+
+void updateClock() {
+    if (isGameOver) {
+        return;
+    }
+    // Update clock rendering timer
+    clockRenderTimer += 0.016f; // Increment by time passed
+    if (clockRenderTimer >= clockRenderInterval) {
+        isClockActive = true;
+        clockRenderTimer = 0; // Reset the timer
+        clockXPosition = windowWidth; // Reset clock position to right edge
+    }
+}
+
+void updateObstacles() {
+    if (isGameOver) {
+        return;
+    }
+
+    wallRenderTimer += 0.016f;
+    if (wallRenderTimer >= WallRenderInterval) {
+        isHit = true;
+        wallRenderTimer = 0;
+        wallXPosition = windowWidth;
+    }
+}
+
+void updateArrow() {
+    if (isGameOver) {
+        return;
+    }
+
+    arrowRenderTimer += 0.016f;
+    if (arrowRenderTimer >= arrowRenderInterval) {
+        isArrowActive = true;
+        arrowRenderTimer = 0;
+        arrowXPosition = windowWidth;
+    }
+}
+
+void updatePlayer() {
+    if (isGameOver) {
+        return; // Stop updating the player if the game is over
+    }
+
+    if (isJumping) {
+        playerY += jumpVelocity;
+        jumpVelocity -= gravity;
+        if (playerY <= groundLevel) {
+            playerY = groundLevel;
+            jumpVelocity = 5.0f;
+            isJumping = false;
+        }
+    }
+
+    // Handle ducking logic
+    if (isDucking) {
+        playerHeight = 30.0f;  // Ducking makes the player shorter
+    }
+    else {
+        playerHeight = 50.0f;  // Reset height when not ducking
+    }
+
+    // Update run animation phase for leg movement
+    runAnimationPhase += 0.1f; // Increment the phase
+    if (runAnimationPhase > 2.0f * M_PI) { // Reset after a full cycle
+        runAnimationPhase -= 2.0f * M_PI;
+    }
+
+    // Increase the score over time if the game is ongoing
+    if (gameStarted && !isGameOver) {
+        frameCounter++; // Increment frame counter
+        if (frameCounter >= scoreIncrementInterval) {
+            //playerScore += 1; // Increment score
+            frameCounter = 0; // Reset counter
+        }
+
+        // Check for collision with the clock
+        if (checkCollisions("clock")) {
+            //clockXPosition = windowWidth; // Reset clock position to the right edge
+            isClockActive = false;
+            timerRemaining += 5.0f; // Increase timer by 5 seconds
+            clockXPosition = windowWidth; // Reset clock position to the right edge
+            updateClock();
+        }
+
+        if (checkCollisions("obstacle")) {
+            isHit = false;
+            playerHealth -= 1;
+            updateObstacles();
+        }
+
+        if (checkCollisions("arrow")) {
+            isArrowActive = false; // Deactivate the arrow after collection
+            playerScore += 100;          // Increase the score by 500
+        }
+
+    }
+}
+
+void updateTrees() {
+    if (isGameOver) {
+        return; // Stop updating trees if the game is over
+    }
+
+    for (int i = 0; i < numTrees; i++) {
+        // Move each tree left by decreasing the X position
+        treePositions[i] -= treeSpeed * gameSpeed;
+
+        // Reset the tree's position if it moves off-screen
+        if (treePositions[i] < -50) {
+            treePositions[i] = windowWidth + 50;
+        }
+    }
+}
+
+
+void Animations(int value) {
+    if (gameStarted && !isGameOver) {
+        updatePlayer();            // Update player position only if game has started
+        updateTrees();             // Update trees
+        updateClock();
+        updateArrow();
+        updateObstacles();
+        // Update timer
+        timerRemaining -= 0.016f; // Decrease timer by approximately 1/60 of a second
+        if (timerRemaining <= 0) {
+            timerRemaining = 0; // Prevent negative timer
+            isGameOver = true;  // Set game over state
+        }
+
+        // Increase game speed gradually
+        gameSpeed += gameSpeedIncrement; // Gradually increase speed
+
+        if (playerHealth == 0) {
+            isGameOver = true;
+        }
+
+    }
+    glutPostRedisplay();           // Redraw the scene
+    glutTimerFunc(16, Animations, 0);  // Call this function again after 16 ms
+}
+
+//--------------------------------------------------------------------------------------------------------------------------------//
+
+//Rendering the final Scene
+
+// Function to render the scene
+void renderScene() {
+    glClear(GL_COLOR_BUFFER_BIT); // Clear the screen
+    renderBackground();            // Render the background
+    renderTimer();                 // Render the timer 
+
+    if (gameStarted) {
+        //updatePlayer();            // Update player position
+        //updateTrees();             // Update trees
+        renderPlayer();            // Render the player
+        renderClock();
+        renderArrow();
+        renderObstacles();
+    }
+    else {
+        renderStartButton();        // Render the start button
+    }
+
+    // Check if the game is over and render the message
+    if (isGameOver && timerRemaining == 0) {
+        glColor3f(1.0f, 0.0f, 0.0f); // Red color for game over text
+        renderBitmapString(windowWidth / 2 - 60, windowHeight / 2, GLUT_BITMAP_HELVETICA_18, "YOU WON!"); // Display game over message
+    }else if (isGameOver){
+        glColor3f(1.0f, 0.0f, 0.0f); // Red color for game over text
+        renderBitmapString(windowWidth / 2 - 60, windowHeight / 2, GLUT_BITMAP_HELVETICA_18, "GAME OVER!"); // Display game over message
+    }
+
+    glutSwapBuffers();             // Swap buffers for double buffering
+}
+
+//---------------------------------------------------------------------------------------------------------------------------------------------//
+
+//Main FUNC
+
+int main(int argc, char** argv) {
+    // Initialize GLUT
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB); // Double buffering and RGB color
+    glutInitWindowSize(windowWidth, windowHeight);
+
+    //Center the window in the screen
+    int screenWidth, screenHeight;
+
+    screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    int windowX = (screenWidth - windowWidth) / 2;
+    int windowY = (screenHeight - windowHeight) / 2;
+
+    glutCreateWindow("2D Infinite Runner Game");
+    glutPositionWindow(windowX, windowY);
+
+
+    glClearColor(0.5f, 0.8f, 1.0f, 1.0f);  // Light blue
+
+
+    // Set up OpenGL projection
+    glOrtho(0.0, windowWidth, 0.0, windowHeight, -1.0, 1.0); // Set orthographic projection
+
+    //Init funcs
+    Controls_init();
+
+    // Initialize trees
+    initTrees();
+
+    // Register callbacks
+    glutDisplayFunc(renderScene);         // Render scene callback
+    glutTimerFunc(0, Animations, 0);           // Start timer for updates
+
+    // Start the main loop
+    glutMainLoop();
+    return 0;
+}

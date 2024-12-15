@@ -1,0 +1,6 @@
+﻿  P24-55-1653.cpp
+C:\Users\Mahmoud\Desktop\GraphicsAss1\Assignment 1\P24-55-1653.cpp(699,5): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\Mahmoud\Desktop\GraphicsAss1\Assignment 1\P24-55-1653.cpp(822,5): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\Mahmoud\Desktop\GraphicsAss1\Assignment 1\P24-55-1653.cpp(836,5): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+P24-55-1653.obj : warning LNK4075: ignoring '/EDITANDCONTINUE' due to '/INCREMENTAL:NO' specification
+  OpenGL2DTemplate.vcxproj -> C:\Users\Mahmoud\Desktop\GraphicsAss1\Assignment 1\Debug\Assignment1.exe
